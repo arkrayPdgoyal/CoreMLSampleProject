@@ -76,7 +76,7 @@ class ViewController: UIViewController, UINavigationControllerDelegate {
         view1.layer.cornerRadius = 15.0
         view1.isHidden = false
         
-      
+      //colored View
         greenView.layer.cornerRadius = 15.0
         greenView.isHidden = false
        
