@@ -9,37 +9,101 @@
 
 import CoreML
 import UIKit
+import Vision
 
 
 class ViewController: UIViewController, UINavigationControllerDelegate {
     
     @IBOutlet weak var cameraImageView: UIImageView!
     @IBOutlet weak var foodClassifierLabel: UILabel!
+    
     @IBOutlet weak var view1: UIView!
     @IBOutlet weak var purpleView: UIView!
     @IBOutlet weak var pinkView: UIView!
     @IBOutlet weak var greenView: UIView!
     
     
-    var model: Food11Classifier!
+   
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        
         view1.isHidden = true
         
         greenView.isHidden = true
         purpleView.isHidden = true
         pinkView.isHidden = true
         
+    }
+    
+  
+    lazy var classificationRequest: VNCoreMLRequest = {
+        do {
+            let model = try VNCoreMLModel(for: FoodClassifier().model)
+            
+            let request = VNCoreMLRequest(model: model, completionHandler: { (request, error) in
+                                self.processClassications(for: request, error: error)
+               
+
+            })
+            
+            request.imageCropAndScaleOption = .centerCrop
+            
+            return request
+        } catch {
+            fatalError("failed to load Core ML Model:\(error)")
+        }
         
+    }()
+    
+    func processClassications(for request: VNRequest, error: Error?) {
+        showDetailsView()
+        guard let classifications = request.results as? [VNClassificationObservation] else {
+            self.foodClassifierLabel.text = "Unable to classify image. \n\(error?.localizedDescription ?? "Error")"
+            return
+        }
+        
+        if classifications.isEmpty {
+            self.foodClassifierLabel.text = "Nothing recognized.\nPlease try again."
+            
+        } else {
+            let topClassifications = classifications.prefix(2)
+            let descriptions = topClassifications.map {
+                classification in return String(format: "%.2f", classification.confidence * 100) + "% - " + classification.identifier
             }
+            
+           
+            self.foodClassifierLabel.text = "Classification: \n" + descriptions.joined(separator: "\n")
+            
+            
+        }
+    }
     
-    
-    override func viewWillAppear(_ animated: Bool) {
-        model = Food11Classifier()
+    func updateClassification(for image: UIImage) {
+        
+        foodClassifierLabel.text = "Classifying...."
+        
+        guard let orientation = CGImagePropertyOrientation(rawValue: UInt32(image.imageOrientation.rawValue)), let ciImage = CIImage(image: image) else {
+            print("Something went wrong...\nPlease try again")
+            return
+        }
+        let handler = VNImageRequestHandler(ciImage: ciImage, orientation: orientation)
+        
+        do {
+            
+            try handler.perform([classificationRequest])
+            
+        } catch {
+            print("Failed to perform classification: \(error.localizedDescription)")
+            
+        }
     }
     
     
+    
+    
+
+
     
     @IBAction func cameraTapped(_ sender: Any) {
         
@@ -100,9 +164,10 @@ extension ViewController: UIImagePickerControllerDelegate {
     
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
         picker.dismiss(animated: true, completion: nil)
-        foodClassifierLabel.text = "Analyzing Image..."
+        
         guard let image = info[UIImagePickerController.InfoKey.originalImage] as? UIImage else {
             return
+            
             
         }
         
@@ -135,12 +200,9 @@ extension ViewController: UIImagePickerControllerDelegate {
         CVPixelBufferUnlockBaseAddress(pixelBuffer!, CVPixelBufferLockFlags(rawValue: 0))
         cameraImageView.image = newImage
         
-        guard let prediction = try? model.prediction(image: pixelBuffer!) else {
-            return
-        }
-        
         showDetailsView()
-        foodClassifierLabel.text = "This is \(prediction.classLabel)."
+        updateClassification(for: newImage)
+    
         
     }
 }
