@@ -39,7 +39,7 @@ class ViewController: UIViewController, UINavigationControllerDelegate {
   
     lazy var classificationRequest: VNCoreMLRequest = {
         do {
-            let model = try VNCoreMLModel(for: FoodClassifier().model)
+            let model = try VNCoreMLModel(for: JapFoodClassifier().model)
             
             let request = VNCoreMLRequest(model: model, completionHandler: { (request, error) in
                                 self.processClassications(for: request, error: error)
